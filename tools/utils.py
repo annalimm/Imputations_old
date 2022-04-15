@@ -194,3 +194,28 @@ def pick_epsilon(X, quant=0.5, mult=0.05, max_points=2000):
     dists = dists[dists > 0]
 
     return quantile(dists, quant, 0).item() * mult
+
+
+#### Quantile ######
+def quantile(X, q, dim=None):
+    """
+    Returns the q-th quantile.
+
+    Parameters
+    ----------
+    X : torch.DoubleTensor or torch.cuda.DoubleTensor, shape (n, d)
+        Input data.
+
+    q : float
+        Quantile level (starting from lower values).
+
+    dim : int or None, default = None
+        Dimension allong which to compute quantiles. If None, the tensor is flattened and one value is returned.
+
+
+    Returns
+    -------
+        quantiles : torch.DoubleTensor
+
+    """
+    return X.kthvalue(int(q * len(X)), dim=dim)[0]
