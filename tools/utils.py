@@ -9,7 +9,7 @@ import pandas as pd
 # from rpy2.robjects.conversion import localconverter
 # from rpy2.robjects import pandas2ri
 # torch.set_default_tensor_type('torch.DoubleTensor')
-
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 
 colors = ['#EDC18D', '#EDA98D', '#8DDCED' ,'#93ED8D', '#8D98ED']
@@ -108,8 +108,10 @@ def MAE(X, X_true, mask):
     to_torch = torch.is_tensor(X) ## output a pytorch tensor, or a numpy array
     if not to_torch:
         X = torch.from_numpy(X)
+        
     if torch.is_tensor(mask):
         mask_ = mask.bool()
+        X_true = torch.from_numpy(X_true)
         return torch.abs(X[mask_] - X_true[mask_]).sum() / mask_.sum()
     else: # should be an ndarray
         mask_ = mask.astype(bool)
@@ -149,6 +151,7 @@ def RMSE(X, X_true, mask):
         X = torch.from_numpy(X)
     if torch.is_tensor(mask):
         mask_ = mask.bool()
+        X_true = torch.from_numpy(X_true)
         return (((X[mask_] - X_true[mask_]) ** 2).sum() / mask_.sum()).sqrt()
     else: # should be an ndarray
         mask_ = mask.astype(bool)

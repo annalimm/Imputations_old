@@ -10,7 +10,13 @@ from tools.utils import pick_epsilon, MAE, RMSE #error estimators
 import torch
 from sklearn.linear_model import BayesianRidge
 from sklearn.model_selection import cross_val_score
-
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+import MIDASpy as md
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae'):
     name = imputer_name
@@ -45,14 +51,20 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae'):
             models[i] = torch.nn.Linear(d_, 1)
         #Create the imputer
         lin_rr_imputer = RRimputer(models, eps=epsilon, lr=lr)
-        imp, lin_maes, lin_rmses = lin_rr_imputer.fit_transform(X_miss, verbose=True, X_true = torch.from_numpy(X_full))
-    
+        imp, lin_maes, lin_rmses = lin_rr_imputer.fit_transform(X_miss, verbose=True, X_true = X_full)
+        imp = imp.detach().numpy()
+        # lin_maes = lin_maes.detach().numpy()
+        # lin_rmses = lin_rmses.detach().numpy()
     elif name == 'mice_r':
         imp = mice_R(X_miss, maxit=50, m=5, seed = 1, meth = 'pmm')
 
     elif name == 'knn':
         imp = KNNImputer().fit_transform(X_miss)
-
+    elif name == 'midas':
+        midas_imputer = md.Midas(layer_structure = [256,256], vae_layer = False, seed = 89, input_drop = 0.75)
+        midas_imputer.build_model(pd.DataFrame(np.array(X_miss)))#, softmax_columns = cat_cols_list)
+        midas_imputer.train_model(training_epochs = 20)
+        imp = np.array(midas_imputer.generate_samples(m=1).output_list[0])
     elif name == 'full':
         imp = X_full
     return X_full, X_miss, mask, imp
