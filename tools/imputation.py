@@ -5,7 +5,8 @@ sys.path.append('..')
 from tools.amputation import produce_NA
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
-from alternative_imputers.muzellec_imputers import RRimputer
+from alternative_imputers.muzellec_imputers import RRimputer, OTimputer
+import miceforest as mf
 from tools.utils import pick_epsilon, MAE, RMSE #error estimators
 import torch
 from sklearn.linear_model import BayesianRidge
@@ -18,9 +19,10 @@ import tensorflow as tf
 import MIDASpy as md
 torch.set_default_tensor_type('torch.DoubleTensor')
 
-def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae'):
+def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = None):
     name = imputer_name
-    X_miss_t = produce_NA(X_full, p_miss = p_miss, p_obs = 0.1, mecha = mecha)
+    if X_miss_t is None:
+        X_miss_t = produce_NA(X_full, p_miss = p_miss, p_obs = 0.1, mecha = mecha)
     X_miss = X_miss_t['X_incomp']
     mask = X_miss_t['mask'] 
 
@@ -39,7 +41,35 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae'):
             imp = IterativeImputer(max_iter = 50, random_state = i, sample_posterior = True).fit_transform(X_miss)
             mice_imps.append(imp)
         imp = sum(mice_imps)/len(mice_imps)
+    elif name == 'sinkhorn':
+        n, d = X_miss.shape
+        batchsize = 128 # If the batch size is larger than half the dataset's size,
+                        # it will be redefined in the imputation methods.
+        lr = 1e-2
+        epsilon = pick_epsilon(X_miss) # Set the regularization parameter as a multiple of the median distance, as per the paper.
+        sk_imputer = OTimputer(eps=epsilon, batchsize=batchsize, lr=lr, niter=2000)
 
+        sk_imp, sk_maes, sk_rmses = sk_imputer.fit_transform(X_miss, verbose=True, report_interval=500, X_true=X_full)
+        imp = sk_imp.detach().numpy()
+
+    elif name == 'miceforest':
+        # Create kernel. 
+        kds_gbdt = mf.ImputationKernel(
+        X_miss.detach().numpy(),
+        datasets=1,
+        save_all_iterations=True,
+        random_state=1991
+        )
+        # Using the first ImputationKernel in kernel to tune parameters
+        # with the default settings.
+        optimal_parameters, losses = kds_gbdt.tune_parameters(
+        dataset=0,
+        optimization_steps=5
+        )
+        # We need to add a small minimum hessian, or lightgbm will complain:
+        kds_gbdt.mice(iterations=1, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
+        # Return the completed kernel data
+        imp = kds_gbdt.complete_data(dataset=0)
     elif name == 'linearRR':  
         lr = 1e-2
         n, d = X_miss.shape
@@ -57,7 +87,6 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae'):
         # lin_rmses = lin_rmses.detach().numpy()
     elif name == 'mice_r':
         imp = mice_R(X_miss, maxit=50, m=5, seed = 1, meth = 'pmm')
-
     elif name == 'knn':
         imp = KNNImputer().fit_transform(X_miss)
     elif name == 'midas':
