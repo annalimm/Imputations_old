@@ -32,7 +32,7 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
     elif name == 'mean':
         imp = SimpleImputer().fit_transform(X_miss)
     elif name == 'ice':
-        imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = False).fit_transform(X_miss)
+        imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True).fit_transform(X_miss)
         # imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True).fit_transform(X_miss)
     
     elif name == 'mice':
@@ -57,6 +57,7 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
         kds_gbdt = mf.ImputationKernel(
         X_miss.detach().numpy(),
         datasets=1,
+        mean_match_candidates=5,
         save_all_iterations=True,
         random_state=1991
         )
