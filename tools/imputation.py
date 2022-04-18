@@ -32,13 +32,13 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
     elif name == 'mean':
         imp = SimpleImputer().fit_transform(X_miss)
     elif name == 'ice':
-        imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True).fit_transform(X_miss)
+        imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True, estimator = BayesianRidge()).fit_transform(X_miss)
         # imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True).fit_transform(X_miss)
     
     elif name == 'mice':
         mice_imps = []
         for i in range(5): ## ух ты тут за случайность в изначальном заполнении отвечает i в random_state
-            imp = IterativeImputer(max_iter = 50, random_state = i, sample_posterior = True).fit_transform(X_miss)
+            imp = IterativeImputer(max_iter = 50, random_state = i, sample_posterior = True, estimator = BayesianRidge()).fit_transform(X_miss)
             mice_imps.append(imp)
         imp = sum(mice_imps)/len(mice_imps)
     elif name == 'sinkhorn':
@@ -54,23 +54,19 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
 
     elif name == 'miceforest':
         # Create kernel. 
-        kds_gbdt = mf.ImputationKernel(
-        X_miss.detach().numpy(),
-        datasets=1,
-        mean_match_candidates=5,
-        save_all_iterations=True,
-        random_state=1991
-        )
-        # Using the first ImputationKernel in kernel to tune parameters
-        # with the default settings.
-        optimal_parameters, losses = kds_gbdt.tune_parameters(
-        dataset=0,
-        optimization_steps=5
-        )
-        # We need to add a small minimum hessian, or lightgbm will complain:
-        kds_gbdt.mice(iterations=1, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
-        # Return the completed kernel data
-        imp = kds_gbdt.complete_data(dataset=0)
+        imputer_forest = mf.ImputationKernel(
+                                        X_miss.detach().numpy(),
+                                        datasets=1,
+                                        mean_match_candidates=5,
+                                        save_all_iterations=True,
+                                        random_state=1991
+                                        )
+        optimal_parameters, losses = imputer_forest.tune_parameters(
+                                        dataset=0,
+                                        optimization_steps=5
+                                        )
+        imputer_forest.mice(iterations=1, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
+        imp = imputer_forest.complete_data(dataset=0)
     elif name == 'linearRR':  
         lr = 1e-2
         n, d = X_miss.shape
