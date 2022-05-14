@@ -2,7 +2,6 @@
 
 import sys 
 sys.path.append('..')
-from tools.amputation import produce_NA
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from alternative_imputers.muzellec_imputers import RRimputer, OTimputer
@@ -13,20 +12,16 @@ from sklearn.linear_model import BayesianRidge
 from sklearn.model_selection import cross_val_score
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
+from tools import mice_i
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import MIDASpy as md
 torch.set_default_tensor_type('torch.DoubleTensor')
 
-def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = None):
+def impute(X_miss, imputer_name = 'mf', mode='mae'):
     name = imputer_name
-    if X_miss_t is None:
-        X_miss_t = produce_NA(X_full, p_miss = p_miss, p_obs = 0.1, mecha = mecha)
-    X_miss = X_miss_t['X_incomp']
-    mask = X_miss_t['mask'] 
 
-    
     if name == 'mf':
         imp = SimpleImputer(strategy = 'most_frequent').fit_transform(X_miss)
     elif name == 'mean':
@@ -50,12 +45,23 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
         sk_imputer = OTimputer(eps=epsilon, batchsize=batchsize, lr=lr, niter=2000)
 
         sk_imp, sk_maes, sk_rmses = sk_imputer.fit_transform(X_miss, verbose=True, report_interval=500, X_true=X_full)
-        imp = sk_imp.detach().numpy()
-
+        imp = sk_imp
+    elif name == 'mice_i':
+        vm = mice_i.VanilaMICE(max_iter=5)
+        vmices = []
+        mask = np.isnan(X_miss)
+        for i in range(5):
+            mask_col = np.where(mask)[0]
+            mask_row = np.where(mask)[1]
+            ids = [[row, col] for row, col in zip(np.where(mask)[0],np.where(mask)[1]) ]
+            vmice = vm.transform(pd.DataFrame(X_miss),columns_missing = np.unique(mask_row), nan_ids = ids, iter_id=i)
+            vmices.append(vmice)
+        vmices = np.array(vmices)
+        imp = np.mean(vmices)
     elif name == 'miceforest':
         # Create kernel. 
         imputer_forest = mf.ImputationKernel(
-                                        X_miss.detach().numpy(),
+                                        X_miss,
                                         datasets=1,
                                         mean_match_candidates=5,
                                         save_all_iterations=True,
@@ -78,8 +84,8 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
             models[i] = torch.nn.Linear(d_, 1)
         #Create the imputer
         lin_rr_imputer = RRimputer(models, eps=epsilon, lr=lr)
-        imp, lin_maes, lin_rmses = lin_rr_imputer.fit_transform(X_miss, verbose=True, X_true = X_full)
-        imp = imp.detach().numpy()
+        imp, lin_maes, lin_rmses = lin_rr_imputer.fit_transform(X_miss, verbose=True)#, X_true = X_full)
+        imp = imp
         # lin_maes = lin_maes.detach().numpy()
         # lin_rmses = lin_rmses.detach().numpy()
     elif name == 'mice_r':
@@ -91,9 +97,8 @@ def impute(X_full, p_miss, mecha, imputer_name = 'mf', mode='mae', X_miss_t = No
         midas_imputer.build_model(pd.DataFrame(np.array(X_miss)))#, softmax_columns = cat_cols_list)
         midas_imputer.train_model(training_epochs = 20)
         imp = np.array(midas_imputer.generate_samples(m=1).output_list[0])
-    elif name == 'full':
-        imp = X_full
-    return X_full, X_miss, mask, imp
+
+    return imp
 
 def assess_impute(X_full, mask, imp, mode = 'mae', y_full = None):
     if mode == 'mae':
