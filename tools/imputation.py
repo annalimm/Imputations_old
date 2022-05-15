@@ -8,7 +8,7 @@ from alternative_imputers.muzellec_imputers import RRimputer, OTimputer
 import miceforest as mf
 from tools.utils import pick_epsilon, MAE, RMSE #error estimators
 import torch
-from sklearn.linear_model import BayesianRidge
+from sklearn.linear_model import BayesianRidge, LinearRegression
 from sklearn.model_selection import cross_val_score
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
