@@ -15,17 +15,27 @@ from sklearn.preprocessing import MinMaxScaler
 from tools import mice_i
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 import tensorflow as tf
 import MIDASpy as md
+
+from impyute.imputation.cs import mice
+import impyute as impy
+
 torch.set_default_tensor_type('torch.DoubleTensor')
 
-def impute(X_miss, imputer_name = 'mf', mode='mae'):
+def impute(X_miss, imputer_name = 'mf', frame=False):
     name = imputer_name
-
+    if frame:
+        columns = X_miss.columns
+    X_miss = np.array(X_miss)
     if name == 'mf':
         imp = SimpleImputer(strategy = 'most_frequent').fit_transform(X_miss)
+    elif name=='const':
+        imp = SimpleImputer(strategy='constant').fit_transform(X_miss)
     elif name == 'mean':
-        imp = SimpleImputer().fit_transform(X_miss)
+#         imp = impy.mean(X_miss)
+        imp = SimpleImputer(strategy='mean').fit_transform(X_miss)
     elif name == 'ice':
         imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True, estimator = BayesianRidge()).fit_transform(X_miss)
         # imp = IterativeImputer(max_iter=50, random_state=0, sample_posterior = True).fit_transform(X_miss)
@@ -97,8 +107,11 @@ def impute(X_miss, imputer_name = 'mf', mode='mae'):
         midas_imputer.build_model(pd.DataFrame(np.array(X_miss)))#, softmax_columns = cat_cols_list)
         midas_imputer.train_model(training_epochs = 20)
         imp = np.array(midas_imputer.generate_samples(m=1).output_list[0])
-
-    return imp
+    
+    if frame:
+        return DataFrame(imp, columns = columns)
+    else:
+        return imp
 
 def assess_impute(X_full, mask, imp, mode = 'mae', y_full = None):
     if mode == 'mae':

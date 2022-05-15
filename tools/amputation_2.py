@@ -13,7 +13,7 @@ import pandas as pd
 # from rpy2.robjects import pandas2ri
 # torch.set_default_tensor_type('torch.DoubleTensor')
 torch.set_default_tensor_type('torch.DoubleTensor')
-
+from pandas import DataFrame
 def mice_R(X_miss, maxit=5, m=5, seed=1, meth=None):
     df = pd.DataFrame(np.array(X_miss)).iloc[:, :]
     df.columns = [f"Col{i}" for i in range(df.columns.shape[0])]
@@ -37,7 +37,7 @@ def mice_R(X_miss, maxit=5, m=5, seed=1, meth=None):
 
 
 
-def produce_NA(X, p_miss, mecha="MCAR", opt=None, p_obs=None, q=None):
+def produce_NA(X, p_miss, mecha="MCAR", opt=None, p_obs=None, q=None, frame=False):
     """
     Generate missing values for specifics missing-data mechanism and proportion of missing values. 
     
@@ -67,7 +67,10 @@ def produce_NA(X, p_miss, mecha="MCAR", opt=None, p_obs=None, q=None):
     
     # to_torch = torch.is_tensor(X) ## output a pytorch tensor, or a numpy array
     # if not to_torch:
-    
+    if frame:
+        columns = X.columns
+        X = np.array(X)
+        
     to_torch = torch.is_tensor(X) ## output a pytorch tensor, or a numpy array
     if not to_torch:
         X = torch.from_numpy(X)
@@ -89,7 +92,11 @@ def produce_NA(X, p_miss, mecha="MCAR", opt=None, p_obs=None, q=None):
     X_nas = X.clone()
     X_nas[mask.bool()] = np.nan
     
-    return X_nas.double().numpy(), mask
+    
+    if frame:
+        return DataFrame(X_nas.double().numpy(), columns = columns), DataFrame(np.array(mask, dtype=bool), columns = columns)
+    else:
+        return X_nas.double().numpy(), mask
 
 def nanmean(v, *args, **kwargs):
     """
