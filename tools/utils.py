@@ -12,7 +12,7 @@ import pandas as pd
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 
-colors = ['#EDC18D', '#EDA98D', '#8DDCED' ,'#93ED8D', '#8D98ED']
+colors = [ '#EDA98D', '#8DDCED' ,'#93ED8D', '#8D98ED', '#BFFBE2', '#FBBFDB', '#8598BC']
 # Matplotlib style definition for saving plots
 plot_style = {
     'axes.prop_cycle': cycler(

@@ -24,7 +24,7 @@ import impyute as impy
 
 torch.set_default_tensor_type('torch.DoubleTensor')
 
-def impute(X_miss, imputer_name = 'mf', frame=False):
+def impute(X_miss, imputer_name = 'mf', frame=False, is_multiple_imputation=False):
     name = imputer_name
     if frame:
         columns = X_miss.columns
@@ -45,6 +45,7 @@ def impute(X_miss, imputer_name = 'mf', frame=False):
         for i in range(5): ## ух ты тут за случайность в изначальном заполнении отвечает i в random_state
             imp = IterativeImputer(max_iter = 50, random_state = i, sample_posterior = True, estimator = BayesianRidge()).fit_transform(X_miss)
             mice_imps.append(imp)
+        
         imp = sum(mice_imps)/len(mice_imps)
     elif name == 'sinkhorn':
         n, d = X_miss.shape
@@ -128,3 +129,6 @@ def assess_impute(X_full, mask, imp, mode = 'mae', y_full = None):
     else:# dataset_name == 'real':
         print("No such mode")
         return 0, 0, 0
+
+    
+    
