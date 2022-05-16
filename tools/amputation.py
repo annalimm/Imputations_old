@@ -4,10 +4,17 @@ import itertools as it
 import numpy as np
 from pandas import DataFrame
 
-def __ampute(X_obs, p_miss, mech, vars_observed=[0], score_func = "sigmoid-right", weights=None):
+def __ampute(X_obs, 
+             p_miss, 
+             mech, 
+             vars_observed=[0], 
+             score_func = "sigmoid-right", 
+             weights=None):
     all_vars = [np.array([i]) for i in range(X_obs.shape[1])]
     vars_to_amp = np.delete(all_vars, vars_observed, None)    
-    patt =  [{'incomplete_vars': vars_to_amp, "mechanism": mech, "score_to_probability_func": score_func, "weights": weights}]#, "score_to_probability_func": "sigmoid-right"
+    patt =  [{'incomplete_vars': vars_to_amp, "mechanism": mech,
+              "score_to_probability_func": score_func,
+              "weights": weights}]
     ma = MultivariateAmputation(
         prop = p_miss, 
         patterns=patt
